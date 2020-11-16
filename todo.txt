@@ -1,0 +1,18 @@
+decidir que dados iguais de duas bases remover:
+    - que dados usar? localização do curso (enade) ou da ies (ies)?
+
+gerar lista de ies (e cursos?) cujos dados estão associados a registros de enade
+adicionar igc e cpc a essas ies (e cursos?)
+formatar valores:
+    - criar faixas de valores para os registros de variáveis idade e nota bruta do enade
+    - verificar onde mais é possível diminuir a cardinalidade
+
+verificar o que foi possível substituir de local de oferta usando a segunda parte do questionário socioeconômico do enade
+
+verificar totalizações de local de oferta
+verificar totalizações de aluno
+verificar totalizações de curso
+
+pensar em abordagens para descoberta de conhecimento:
+    - o que faz um estudante ter uma boa nota no enade?
+    - o que faz uma ies ter um bom igc?
