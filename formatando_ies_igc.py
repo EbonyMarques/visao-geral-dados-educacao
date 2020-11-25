@@ -1,0 +1,92 @@
+import pandas as pd
+from pandas_profiling import ProfileReport as pr
+
+df_ies = pd.read_csv("ies_final_antes_igc.csv", sep=",", encoding="ISO-8859-1", dtype='unicode')
+df_igc = pd.read_csv("igc.csv", sep=",", encoding="ISO-8859-1", dtype='unicode')
+
+df_ies.rename(columns={'INDICADOR_CAPITAL_IES':'LOCALIZACAO_CAPITAL_IES'}, inplace=True)
+df_ies.rename(columns={'INDICADOR_ACESSO_PORTAL_CAPES_IES':'ACESSO_PORTAL_CAPES_IES'}, inplace=True)
+df_ies.rename(columns={'INDICADOR_REPOSITORIO_INSTITUCIONAL_IES':'REPOSITORIO_INSTITUCIONAL_IES'}, inplace=True)
+df_ies.rename(columns={'INDICADOR_BUSCA_INTEGRADA_IES':'BUSCA_INTEGRADA_IES'}, inplace=True)
+df_ies.rename(columns={'INDICADOR_SERVICO_INTERNET_IES':'SERVICO_INTERNET_IES'}, inplace=True)
+df_ies.rename(columns={'INDICADOR_PARTICIPACAO_REDE_SOCIAL_IES':'PARTICIPACAO_REDE_SOCIAL_IES'}, inplace=True)
+df_ies.rename(columns={'INDICADOR_CATALOGO_ONLINE_IES':'CATALOGO_ONLINE_IES'}, inplace=True)
+df_ies.rename(columns={'ENTIDADE_REFERENTE_DADO_FINANCEIRO_IES':'REFERENCIA_DADO_FINANCEIRO_IES'}, inplace=True)
+
+df_ies.rename(columns={'VALOR_RECEITA_PROPRIA_IES':'RECEITA_PROPRIA_IES'}, inplace=True)
+df_ies.rename(columns={'VALOR_RECEITA_TRANSFERENCIA_IES':'RECEITA_TRANSFERENCIA_IES'}, inplace=True)
+df_ies.rename(columns={'VALOR_OUTRA_RECEITA_IES':'OUTRA_RECEITA_IES'}, inplace=True)
+df_ies.rename(columns={'VALOR_DESPESA_PESSOAL_DOCENTE_IES':'DESPESA_PESSOAL_DOCENTE_IES'}, inplace=True)
+df_ies.rename(columns={'VALOR_DESPESA_PESSOAL_TECNICO_IES':'DESPESA_PESSOAL_TECNICO_IES'}, inplace=True)
+df_ies.rename(columns={'VALOR_DESPESA_PESSOAL_ENCARGO_IES':'DESPESA_PESSOAL_ENCARGO_IES'}, inplace=True)
+df_ies.rename(columns={'VALOR_DESPESA_CUSTEIO_IES':'DESPESA_CUSTEIO_IES'}, inplace=True)
+df_ies.rename(columns={'VALOR_DESPESA_INVESTIMENTO_IES':'DESPESA_INVESTIMENTO_IES'}, inplace=True)
+df_ies.rename(columns={'VALOR_DESPESA_PESQUISA_IES':'DESPESA_PESQUISA_IES'}, inplace=True)
+df_ies.rename(columns={'VALOR_OUTRA_DESPESA_IES':'OUTRA_DESPESA_IES'}, inplace=True)
+
+df_ies = df_ies.astype({'QTDE_TECNICOS_FUNDAMENTAL_INCOMP_FEM_IES': 'int32'})
+df_ies = df_ies.astype({'QTDE_TECNICOS_FUNDAMENTAL_INCOMP_MASC_IES': 'int32'})
+df_ies = df_ies.astype({'QTDE_TECNICOS_FUNDAMENTAL_COMP_FEM_IES': 'int32'})
+df_ies = df_ies.astype({'QTDE_TECNICOS_FUNDAMENTAL_COMP_MASC_IES': 'int32'})
+df_ies = df_ies.astype({'QTDE_TECNICOS_MEDIO_FEM_IES': 'int32'})
+df_ies = df_ies.astype({'QTDE_TECNICOS_MEDIO_MASC_IES': 'int32'})
+df_ies = df_ies.astype({'QTDE_TECNICOS_SUPERIOR_FEM_IES': 'int32'})
+df_ies = df_ies.astype({'QTDE_TECNICOS_SUPERIOR_MASC_IES': 'int32'})
+df_ies = df_ies.astype({'QTDE_TECNICOS_ESPECIALIZACAO_FEM_IES': 'int32'})
+df_ies = df_ies.astype({'QTDE_TECNICOS_ESPECIALIZACAO_MASC_IES': 'int32'})
+df_ies = df_ies.astype({'QTDE_TECNICOS_MESTRADO_FEM_IES': 'int32'})
+df_ies = df_ies.astype({'QTDE_TECNICOS_MESTRADO_MASC_IES': 'int32'})
+df_ies = df_ies.astype({'QTDE_TECNICOS_DOUTORADO_FEM_IES': 'int32'})
+df_ies = df_ies.astype({'QTDE_TECNICOS_DOUTORADO_MASC_IES': 'int32'})
+
+qtde_tecnicos_fundamental = df_ies['QTDE_TECNICOS_FUNDAMENTAL_INCOMP_FEM_IES'] + df_ies['QTDE_TECNICOS_FUNDAMENTAL_INCOMP_MASC_IES'] + df_ies['QTDE_TECNICOS_FUNDAMENTAL_COMP_FEM_IES'] + df_ies['QTDE_TECNICOS_FUNDAMENTAL_COMP_MASC_IES']
+qtde_tecnicos_medio = df_ies['QTDE_TECNICOS_MEDIO_FEM_IES'] + df_ies['QTDE_TECNICOS_MEDIO_MASC_IES']
+qtde_tecnicos_superior = df_ies['QTDE_TECNICOS_SUPERIOR_FEM_IES'] + df_ies['QTDE_TECNICOS_SUPERIOR_MASC_IES']
+qtde_tecnicos_pos = df_ies['QTDE_TECNICOS_ESPECIALIZACAO_FEM_IES'] + df_ies['QTDE_TECNICOS_ESPECIALIZACAO_MASC_IES'] + df_ies['QTDE_TECNICOS_MESTRADO_FEM_IES'] + df_ies['QTDE_TECNICOS_MESTRADO_MASC_IES'] + df_ies['QTDE_TECNICOS_DOUTORADO_FEM_IES'] + df_ies['QTDE_TECNICOS_DOUTORADO_MASC_IES']
+
+# qtde_tecnicos_fundamental_fem = df_ies['QTDE_TECNICOS_FUNDAMENTAL_INCOMP_FEM_IES'] + df_ies['QTDE_TECNICOS_FUNDAMENTAL_COMP_FEM_IES']
+# qtde_tecnicos_fundamental_masc = df_ies['QTDE_TECNICOS_FUNDAMENTAL_INCOMP_MASC_IES'] + df_ies['QTDE_TECNICOS_FUNDAMENTAL_COMP_MASC_IES']
+# qtde_tecnicos_pos_fem = df_ies['QTDE_TECNICOS_ESPECIALIZACAO_FEM_IES'] + df_ies['QTDE_TECNICOS_MESTRADO_FEM_IES'] + df_ies['QTDE_TECNICOS_DOUTORADO_FEM_IES']
+# qtde_tecnicos_pos_masc = df_ies['QTDE_TECNICOS_ESPECIALIZACAO_MASC_IES'] + df_ies['QTDE_TECNICOS_MESTRADO_MASC_IES'] + df_ies['QTDE_TECNICOS_DOUTORADO_MASC_IES']
+
+df_igc.rename(columns={'ANO':'ANO_IGC'}, inplace=True)
+
+df_ies.insert(12,'QTDE_TECNICOS_FUNDAMENTAL_IES',list(qtde_tecnicos_fundamental),True)
+df_ies.insert(13,'QTDE_TECNICOS_MEDIO_IES',list(qtde_tecnicos_medio),True)
+df_ies.insert(14,'QTDE_TECNICOS_SUPERIOR_IES',list(qtde_tecnicos_superior),True)
+df_ies.insert(15,'QTDE_TECNICOS_POS_IES',list(qtde_tecnicos_pos),True)
+
+# df_ies.insert(12,'QTDE_TECNICOS_FUNDAMENTAL_FEM_IES',list(qtde_tecnicos_fundamental_fem),True)
+# df_ies.insert(12,'QTDE_TECNICOS_FUNDAMENTAL_MASC_IES',list(qtde_tecnicos_fundamental_masc),True)
+# df_ies.insert(15,'QTDE_TECNICOS_POS_FEM_IES',list(qtde_tecnicos_pos_fem),True)
+# df_ies.insert(15,'QTDE_TECNICOS_POS_MASC_IES',list(qtde_tecnicos_pos_masc),True)
+
+df_ies.drop('QTDE_TECNICOS_FUNDAMENTAL_INCOMP_FEM_IES', axis=1, inplace=True)
+df_ies.drop('QTDE_TECNICOS_FUNDAMENTAL_INCOMP_MASC_IES', axis=1, inplace=True)
+df_ies.drop('QTDE_TECNICOS_FUNDAMENTAL_COMP_FEM_IES', axis=1, inplace=True)
+df_ies.drop('QTDE_TECNICOS_FUNDAMENTAL_COMP_MASC_IES', axis=1, inplace=True)
+df_ies.drop('QTDE_TECNICOS_MEDIO_FEM_IES', axis=1, inplace=True)
+df_ies.drop('QTDE_TECNICOS_MEDIO_MASC_IES', axis=1, inplace=True)
+df_ies.drop('QTDE_TECNICOS_SUPERIOR_FEM_IES', axis=1, inplace=True)
+df_ies.drop('QTDE_TECNICOS_SUPERIOR_MASC_IES', axis=1, inplace=True)
+df_ies.drop('QTDE_TECNICOS_ESPECIALIZACAO_FEM_IES', axis=1, inplace=True)
+df_ies.drop('QTDE_TECNICOS_ESPECIALIZACAO_MASC_IES', axis=1, inplace=True)
+df_ies.drop('QTDE_TECNICOS_MESTRADO_FEM_IES', axis=1, inplace=True)
+df_ies.drop('QTDE_TECNICOS_MESTRADO_MASC_IES', axis=1, inplace=True)
+df_ies.drop('QTDE_TECNICOS_DOUTORADO_FEM_IES', axis=1, inplace=True)
+df_ies.drop('QTDE_TECNICOS_DOUTORADO_MASC_IES', axis=1, inplace=True)
+
+# print(list(qtde_tecnicos_fundamental))
+# print(len(list(qtde_tecnicos_fundamental)))
+
+print("Começando join")
+df_final = df_ies.join(df_igc.set_index('CODIGO_IES'), on='CODIGO_IES')
+print("Finalizando join")
+
+df_final = df_final[['ANO_CENSO_IES','CODIGO_IES','ANO_IGC','IGC_FAIXA','NOME_IES','SIGLA_IES','CODIGO_MANTENEDORA_IES','NOME_MANTENEDORA_IES','CATEGORIA_ADMINISTRATIVA_IES','ORGANIZACAO_ACADEMICA_IES','CODIGO_REGIAO_IES','CODIGO_UNIDADE_FEDERATIVA_IES','CODIGO_MUNICIPIO_IES','LOCALIZACAO_CAPITAL_IES','QTDE_TOTAL_TECNICOS_IES','QTDE_TECNICOS_FUNDAMENTAL_IES','QTDE_TECNICOS_MEDIO_IES','QTDE_TECNICOS_SUPERIOR_IES','QTDE_TECNICOS_POS_IES','ACESSO_PORTAL_CAPES_IES','REPOSITORIO_INSTITUCIONAL_IES','BUSCA_INTEGRADA_IES','SERVICO_INTERNET_IES','PARTICIPACAO_REDE_SOCIAL_IES','CATALOGO_ONLINE_IES','QTDE_PERIODICOS_ELETRONICOS_IES','QTDE_LIVROS_ELETRONICOS_IES','REFERENCIA_DADO_FINANCEIRO_IES','RECEITA_PROPRIA_IES','RECEITA_TRANSFERENCIA_IES','OUTRA_RECEITA_IES','DESPESA_PESSOAL_DOCENTE_IES','DESPESA_PESSOAL_TECNICO_IES','DESPESA_PESSOAL_ENCARGO_IES','DESPESA_CUSTEIO_IES','DESPESA_INVESTIMENTO_IES','DESPESA_PESQUISA_IES','OUTRA_DESPESA_IES']]
+# df_final = df_final[['ANO_CENSO_IES','CODIGO_IES','ANO_IGC','IGC_FAIXA','NOME_IES','SIGLA_IES','CODIGO_MANTENEDORA_IES','NOME_MANTENEDORA_IES','CATEGORIA_ADMINISTRATIVA_IES','ORGANIZACAO_ACADEMICA_IES','CODIGO_REGIAO_IES','CODIGO_UNIDADE_FEDERATIVA_IES','CODIGO_MUNICIPIO_IES','LOCALIZACAO_CAPITAL_IES','QTDE_TOTAL_TECNICOS_IES','QTDE_TECNICOS_FUNDAMENTAL_FEM_IES','QTDE_TECNICOS_FUNDAMENTAL_MASC_IES','QTDE_TECNICOS_MEDIO_FEM_IES','QTDE_TECNICOS_MEDIO_MASC_IES','QTDE_TECNICOS_SUPERIOR_FEM_IES','QTDE_TECNICOS_SUPERIOR_MASC_IES','QTDE_TECNICOS_POS_FEM_IES','QTDE_TECNICOS_POS_MASC_IES','ACESSO_PORTAL_CAPES_IES','REPOSITORIO_INSTITUCIONAL_IES','BUSCA_INTEGRADA_IES','SERVICO_INTERNET_IES','PARTICIPACAO_REDE_SOCIAL_IES','CATALOGO_ONLINE_IES','QTDE_PERIODICOS_ELETRONICOS_IES','QTDE_LIVROS_ELETRONICOS_IES','REFERENCIA_DADO_FINANCEIRO_IES','RECEITA_PROPRIA_IES','RECEITA_TRANSFERENCIA_IES','OUTRA_RECEITA_IES','DESPESA_PESSOAL_DOCENTE_IES','DESPESA_PESSOAL_TECNICO_IES','DESPESA_PESSOAL_ENCARGO_IES','DESPESA_CUSTEIO_IES','DESPESA_INVESTIMENTO_IES','DESPESA_PESQUISA_IES','OUTRA_DESPESA_IES']]
+
+df_final.to_csv('ies_igc_1.csv',index=False,encoding="ISO-8859-1")
+
+profile = pr(df_final, title='IES + IGC', minimal=True, html={'style':{'full_width':True}})
+profile.to_file("ies_igc_1.html")

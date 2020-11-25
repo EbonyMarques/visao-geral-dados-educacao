@@ -41,10 +41,10 @@ df_igc = df_igc.append(df_igc_2015, ignore_index=True)
 
 df_igc.drop_duplicates(subset=['CODIGO_IES'],ignore_index=True, inplace=True)
 
-df_igc.to_csv('igc.csv', index=False)
+df_igc.to_csv('igc_final.csv', index=False)
 
 profile = pr(df_igc, title='IGC', minimal=True, html={'style':{'full_width':True}})
-profile.to_file("igc.html")
+profile.to_file("igc_final.html")
 
 # profile = pr(df_igc_2017, title='IGC de 2017', minimal=True, html={'style':{'full_width':True}})
 # profile.to_file("igc_2017.html")
