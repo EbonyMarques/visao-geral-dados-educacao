@@ -15,13 +15,12 @@ class Manager():
     def __init__(self):
         print('Inicializando...')
 
-        # self.enade_formatter()
+        self.enade_formatter()
         # self.ies_formatter()
         # self.igc_formatter()
         # self.cpc_formater()
         # self.conceito_enade_formatter()
-
-        self.database_maker()
+        # self.database_maker()
 
     def reader(self, path, read_method, separator = None, dtype = 'unicode'):
         '''The return value of this method is a dataframe that contains the database loaded from the path passed as a parameter'''
@@ -51,8 +50,13 @@ class Manager():
         profile.to_file(file_name)
 
     def enade_formatter(self):
+        #Iterations that will be performed
         iterations = [2018, 2017, 2016]
+
+        #Creation of the final dataframe variable
         final_dataframe = None
+
+        #Definition of variables necessary for all iterations (drop and rename)
         commom_variables_to_drop = ['CO_CATEGAD',
                                     'CO_ORGACAD',
                                     'NU_ITEM_OFG',
@@ -122,6 +126,7 @@ class Manager():
                                     'QE_I53',
                                     'QE_I55',
                                     'QE_I66']
+
         variables_to_rename = {'NU_ANO': 'ANO_ENADE',
                                 'CO_IES': 'CODIGO_IES',
                                 'CO_CATEGAD': 'CATEGORIA_ADM_IES',
@@ -193,13 +198,20 @@ class Manager():
                                 'QE_I67': 'OFERTA_LAZER_IES',
                                 'QE_I68': 'INFRAESTRUTURA_GERAL_IES'}
 
+        #Performing iterations
         for i in iterations:
+            #Defining list of variables to drop
             variables_to_drop = []
+
             print('Efetuando a iteração',i,'do ENADE')
+
+            #Defining peculiarities of each iteration
+            #Defining path to the database
+            #Defining list of variables to drop in the iteration
             if i == 2018:
                 path = 'enade/2018/3.dados/microdados_enade_2018.csv'
                 other_variables_to_drop = ['TP_INSCRICAO_ADM',
-                                            'TP_INSCRICAO']
+                                           'TP_INSCRICAO']
                 variables_to_drop = commom_variables_to_drop + other_variables_to_drop
             elif i == 2017:
                 path = 'enade/2017/3.dados/microdados_enade_2017.csv'
@@ -227,32 +239,44 @@ class Manager():
                                             'IN_GRAD']
                 variables_to_drop = commom_variables_to_drop + other_variables_to_drop
 
+            #Reading database
             dataframe = self.reader(path, 'csv', ';')
 
+            #Dropping variables
             dataframe.drop(variables_to_drop, axis = 1, inplace = True)
 
+            #Renaming variables
             dataframe.rename(columns = variables_to_rename, inplace = True)
 
+            #Performing necessary and specific operations for iteration
             if i == 2018:
-                dataframe['MODALIDADE_CURSO'] = dataframe['MODALIDADE_CURSO'].replace([2], 0)
+                dataframe['MODALIDADE_CURSO'] = dataframe['MODALIDADE_CURSO'].replace(['2'], '0')
+                # modalities = []
+
+                # for a, b in dataframe.iterrows():
+                #     modality = b['MODALIDADE_CURSO'].replace('2', '0')
+                #     modalities.append(modality)
+
+                # dataframe.drop(['MODALIDADE_CURSO'], axis = 1, inplace = True)
+               
+                # dataframe.insert(6, 'MODALIDADE_CURSO', modalities)
+                
             elif i == 2016:
                 shifts = []
 
-                for i, j in dataframe.iterrows():
+                for a, b in dataframe.iterrows():
                     value = '0'
-                    if j['IN_MATUT'] == '1':
+                    if b['IN_MATUT'] == '1':
                         value = '1'
-                        if j['IN_VESPER'] == '1':
+                        if b['IN_VESPER'] == '1':
                             value = '3'
-                            # if j['IN_NOTURNO'] == '1':
-                            #     valor = '0'
-                        elif j['IN_NOTURNO'] == '1':
+                        elif b['IN_NOTURNO'] == '1':
                             value = '3'
-                    elif j['IN_VESPER'] == '1':
+                    elif b['IN_VESPER'] == '1':
                         value = '2'
-                        if j['IN_NOTURNO'] == '1':
+                        if b['IN_NOTURNO'] == '1':
                             value = '3'
-                    elif j['IN_NOTURNO'] == '1':
+                    elif b['IN_NOTURNO'] == '1':
                         value = '4'
                     shifts.append(value)
 
@@ -260,40 +284,63 @@ class Manager():
                
                 dataframe.insert(15, 'TURNO_GRADUACAO', shifts)
             
+            print('oxe',i)
+
+            #Adding data read in the iteration to the final dataframe
             if i == 2018:
                 final_dataframe = dataframe
             else:
                 final_dataframe = final_dataframe.append(dataframe, ignore_index = True)
 
+        #Performing necessary operations for final dataframe
+
+        #Dropping possible duplicate rows
         final_dataframe.drop_duplicates(ignore_index = True, inplace = True)
         final_dataframe.reset_index(drop = True, inplace = True)
 
+        #Selecting valid presences in the ENADE
         final_dataframe = final_dataframe.loc[final_dataframe['PRESENCA_ENADE'] == '555']
         final_dataframe.drop('PRESENCA_ENADE', axis=1, inplace=True)
 
+        #Selecting records that are not associated with missing IES 708 and 18210
         final_dataframe = final_dataframe.loc[(final_dataframe['CODIGO_IES'] != '708') & (final_dataframe['CODIGO_IES'] != '18210')]
         final_dataframe.reset_index(drop = True, inplace = True)
+
+        final_dataframe['SEXO'] = final_dataframe['SEXO'].replace(['N'], 'M')
         
+        #Dropping records with missing values
         final_dataframe.dropna(inplace = True)
         final_dataframe.reset_index(drop = True, inplace = True)
 
+        #Replacing ',' with '.' in the records of the variable 'Nota_BRUTA_ENADE'
         scores = []
 
         for i, j in final_dataframe.iterrows():
             score = str(j['NOTA_BRUTA_ENADE']).replace(',','.')
             scores.append(score)
 
+        #Dropping old 'NOTA_BRUTA_ENADE' variable with wrong data format
         final_dataframe.drop('NOTA_BRUTA_ENADE', axis=1, inplace=True)
 
+        #Defining new 'NOTA_BRUTA_ENADE' variable with right data format
         final_dataframe.insert(1, 'NOTA_BRUTA_ENADE', scores)
 
+        #Writing final dataframe data
         self.writer(final_dataframe, 'enade_novo_metodo.csv')
+
+        #Analyzing final dataframe data
         self.analyzer(final_dataframe, 'NOVO ENADE', 'enade_novo_metodo.html')
 
     def ies_formatter(self):
+        #Iterations that will be performed
         iterations = [2018, 2017, 2016]
+
+        #Creation of the final dataframe variable
         final_dataframe = None
+
+        #Definition of variables necessary for all iterations (drop and rename)
         commom_variables_to_drop = ['IN_ACESSO_OUTRAS_BASES']
+
         variables_to_rename = {'NU_ANO_CENSO': 'ANO_CENSO_IES',
                                 'CO_IES': 'CODIGO_IES',
                                 'NO_IES': 'NOME_IES',
@@ -369,9 +416,16 @@ class Manager():
                                 'TP_REFERENTE': 'REFERENCIA_FINANCEIRA_IES',
                                 'IN_REFERENTE': 'REFERENCIA_FINANCEIRA_IES'}
         
+        #Performing iterations
         for i in iterations:
+            #Defining list of variables to drop
             variables_to_drop = []
+
             print('Efetuando a iteração',i,'de IES')
+
+            #Defining peculiarities of each iteration
+            #Defining path to the database
+            #Defining list of variables to drop in the iteration
             if i == 2018:
                 path = 'educacao_superior/2018/dados/dm_ies.csv'
                 other_variables_to_drop = ['IN_ASSINA_OUTRA_BASE']
@@ -387,22 +441,30 @@ class Manager():
                                             'SGL_UF_IES']
                 variables_to_drop = commom_variables_to_drop + other_variables_to_drop
 
+            #Reading database
             dataframe = self.reader(path, 'csv', '|')
 
+            #Dropping variables
             dataframe.drop(variables_to_drop, axis = 1, inplace = True)
 
+            #Renaming variables
             dataframe.rename(columns = variables_to_rename, inplace = True)
 
+            #Performing necessary and specific operations for iteration
             if i == 2016:
                 dataframe.insert(1, "ANO_CENSO_IES", ['2016']*len(dataframe.index), True)
             
+            #Adding data read in the iteration to the final dataframe
             if i == 2018:
                 final_dataframe = dataframe
             else:
                 final_dataframe = final_dataframe.append(dataframe, ignore_index = True)
 
+        #Performing necessary operations for final dataframe
         final_dataframe = final_dataframe.astype({'ANO_CENSO_IES': 'int32'})
         final_dataframe = final_dataframe.sort_values(by='ANO_CENSO_IES', ascending = False)
+        
+        #Dropping possible duplicate rows
         final_dataframe = final_dataframe.drop_duplicates(subset=['CODIGO_IES'], ignore_index = True)
         final_dataframe.reset_index(drop = True, inplace = True)
 
@@ -461,13 +523,20 @@ class Manager():
 
         final_dataframe = final_dataframe[['ANO_CENSO_IES','CODIGO_IES','NOME_IES','SIGLA_IES','CODIGO_MANTENEDORA_IES','NOME_MANTENEDORA_IES','CATEGORIA_ADMINISTRATIVA_IES','ORGANIZACAO_ACADEMICA_IES','CODIGO_REGIAO_IES','CODIGO_UNIDADE_FEDERATIVA_IES','CODIGO_MUNICIPIO_IES','LOCALIZACAO_CAPITAL_IES','QTDE_TOTAL_TECNICOS_IES','QTDE_TECNICOS_FUNDAMENTAL_IES','QTDE_TECNICOS_MEDIO_IES','QTDE_TECNICOS_SUPERIOR_IES','QTDE_TECNICOS_POS_IES','ACESSO_PORTAL_CAPES_IES','REPOSITORIO_INSTITUCIONAL_IES','BUSCA_INTEGRADA_IES','SERVICO_INTERNET_IES','PARTICIPACAO_REDE_SOCIAL_IES','CATALOGO_ONLINE_IES','QTDE_PERIODICOS_ELETRONICOS_IES','QTDE_LIVROS_ELETRONICOS_IES','REFERENCIA_FINANCEIRA_IES','RECEITA_PROPRIA_IES','RECEITA_TRANSFERENCIA_IES','OUTRA_RECEITA_IES','DESPESA_DOCENTE_IES','DESPESA_TECNICO_IES','DESPESA_ENCARGO_IES','DESPESA_CUSTEIO_IES','DESPESA_INVESTIMENTO_IES','DESPESA_PESQUISA_IES','OUTRA_DESPESA_IES']]
 
+        #Writing final dataframe data
         self.writer(final_dataframe, 'ies_novo_metodo.csv')
+
+        #Analyzing final dataframe data
         self.analyzer(final_dataframe, 'NOVA IES', 'ies_novo_metodo.html')
     
     def igc_formatter(self):
+        #Iterations that will be performed
         iterations = [2018, 2017, 2016, 2015]
+
+        #Creation of the final dataframe variable
         final_dataframe = None
         
+        #Performing iterations
         for i in iterations:
             variables_to_consider = []
             variables_to_rename = {'Ano': 'ANO_IGC',
@@ -495,6 +564,7 @@ class Manager():
                 read_method = [0, 1, 2]
                 variables_to_consider = ['Ano','Cód.IES','IGC (faixa)']
 
+            #Reading database
             dataframe = self.reader(path, read_method)
             
             if i == 2018 or i == 2017:
@@ -508,24 +578,34 @@ class Manager():
             if i == 2017:
                 dataframe.insert(1,'ANO_IGC',['2017']*len(dataframe.index),True)
 
+            #Renaming variables
             dataframe.rename(columns=variables_to_rename, inplace = True)
 
+            #Adding data read in the iteration to the final dataframe
             if i == 2018:
                 final_dataframe = dataframe
             else:
                 final_dataframe = final_dataframe.append(dataframe, ignore_index = True)
             
+        #Performing necessary operations for final dataframe
         final_dataframe = final_dataframe.astype({'ANO_IGC': 'int32'})
         final_dataframe = final_dataframe.sort_values(by = 'ANO_IGC', ascending = False)
         final_dataframe.drop_duplicates(subset = ['CODIGO_IES'], ignore_index = True, inplace = True)
 
+        #Writing final dataframe data
         self.writer(final_dataframe, 'igc_novo_metodo.csv')
+
+        #Analyzing final dataframe data
         self.analyzer(final_dataframe, 'NOVO IGC', 'igc_novo_metodo.html')
 
     def cpc_formater(self):
+        #Iterations that will be performed
         iterations = [2018, 2017, 2016, 2015]
+
+        #Creation of the final dataframe variable
         final_dataframe = None
 
+        #Performing iterations
         for i in iterations:
             variables_to_consider = []
             variables_to_rename = {'Ano': 'ANO_CPC',
@@ -547,27 +627,38 @@ class Manager():
                 path = 'indices/2015/cpc_2015.xls'
                 variables_to_consider = ['Ano','Código da IES','Código do Curso','CPC Faixa']
 
+            #Reading database
             dataframe = self.reader(path, 'excel')
             dataframe = dataframe[variables_to_consider]
 
+            #Renaming variables
             dataframe.rename(columns=variables_to_rename, inplace = True)
 
+            #Adding data read in the iteration to the final dataframe
             if i == 2018:
                 final_dataframe = dataframe
             else:
                 final_dataframe = final_dataframe.append(dataframe, ignore_index = True)
-
+        
+        #Performing necessary operations for final dataframe
         final_dataframe = final_dataframe.astype({'ANO_CPC': 'int32'})
         final_dataframe = final_dataframe.sort_values(by = 'ANO_CPC', ascending = False)
         final_dataframe.drop_duplicates(subset = ['CODIGO_IES', 'CODIGO_CURSO'], ignore_index = True, inplace = True)
 
+        #Writing final dataframe data
         self.writer(final_dataframe, 'cpc_novo_metodo.csv')
+
+        #Analyzing final dataframe data
         self.analyzer(final_dataframe, 'NOVO CPC', 'cpc_novo_metodo.html')
 
     def conceito_enade_formatter(self):
+        #Iterations that will be performed
         iterations = [2018, 2017, 2016, 2015]
+
+        #Creation of the final dataframe variable
         final_dataframe = None
 
+        #Performing iterations
         for i in iterations:
             variables_to_consider = []
             variables_to_rename = {'Ano': 'ANO_CONCEITO_ENADE',
@@ -588,36 +679,56 @@ class Manager():
                 path = 'indices/2015/conceito_enade_2015.xls'
                 variables_to_consider = ['Ano','Código da IES','Código do Curso','Conceito Enade Faixa)']
 
+            #Reading database
             dataframe = self.reader(path, 'excel')
             dataframe = dataframe[variables_to_consider]
 
+            #Renaming variables
             dataframe.rename(columns=variables_to_rename, inplace = True)
 
+            #Adding data read in the iteration to the final dataframe
             if i == 2018:
                 final_dataframe = dataframe
             else:
                 final_dataframe = final_dataframe.append(dataframe, ignore_index = True)
 
+        #Performing necessary operations for final dataframe
         final_dataframe = final_dataframe.astype({'ANO_CONCEITO_ENADE': 'int32'})
         final_dataframe = final_dataframe.sort_values(by = 'ANO_CONCEITO_ENADE', ascending = False)
         final_dataframe.drop_duplicates(subset = ['CODIGO_IES', 'CODIGO_CURSO'], ignore_index = True, inplace = True)
 
+        #Writing final dataframe data
         self.writer(final_dataframe, 'conceito_enade_novo_metodo.csv')
+
+        #Analyzing final dataframe data
         self.analyzer(final_dataframe, 'CONCEITO ENADE', 'conceito_enade_novo_metodo.html')
 
     def database_maker(self):
+        #Reading the ENADE database
         enade_dataframe = self.reader('enade_novo_metodo.csv', 'csv', ',')
+
+        #Reading the IES database
         ies_dataframe = self.reader('ies_novo_metodo.csv', 'csv', ',')
+
+        #Reading the IGC database
         igc_dataframe = self.reader('igc_novo_metodo.csv', 'csv', ',')
+
+        #Reading the CPC database
         cpc_dataframe = self.reader('cpc_novo_metodo.csv', 'csv', ',')
+
+        #Reading the CONCEITO ENADE database
         conceito_enade_dataframe = self.reader('conceito_enade_novo_metodo.csv', 'csv', ',')
 
+        #Joining all the databases read to form the final database
         final_dataframe = enade_dataframe.join(ies_dataframe.set_index('CODIGO_IES'), on='CODIGO_IES')
         final_dataframe = final_dataframe.join(igc_dataframe.set_index('CODIGO_IES'), on='CODIGO_IES')
         final_dataframe = final_dataframe.join(cpc_dataframe.set_index(['CODIGO_IES','CODIGO_CURSO']), on=['CODIGO_IES','CODIGO_CURSO'])
         final_dataframe = final_dataframe.join(conceito_enade_dataframe.set_index(['CODIGO_IES','CODIGO_CURSO']), on=['CODIGO_IES','CODIGO_CURSO'])
 
+        #Writing final database
         self.writer(final_dataframe, 'base_final_novo_metodo.csv')
+
+        #Analyzing final database
         self.analyzer(final_dataframe, 'BASE FINAL', 'base_final_novo_metodo.html')
 
 manager = Manager()
