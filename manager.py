@@ -10,19 +10,23 @@
 
 import pandas as pd
 from pandas_profiling import ProfileReport as pr
+from feature_engine.discretisers import EqualFrequencyDiscretiser
 
 class Manager():
     def __init__(self):
         print('Inicializando...')
 
-        self.enade_formatter()
-        # self.ies_formatter()
+        # self.enade_formatter()
+        # self.enade_reviews()
+        # self.ies_enade_formatter()
+        self.ies_formatter()
         # self.igc_formatter()
         # self.cpc_formater()
         # self.conceito_enade_formatter()
-        # self.database_maker()
 
-    def reader(self, path, read_method, separator = None, dtype = 'unicode'):
+        self.database_maker()
+
+    def reader(self, path, read_method = 'csv', separator = ',', dtype = 'unicode'):
         '''The return value of this method is a dataframe that contains the database loaded from the path passed as a parameter'''
 
         print('Lendo', path)
@@ -34,12 +38,12 @@ class Manager():
         else:
             return pd.read_excel(path, sheet_name = read_method, dtype = dtype)
 
-    def writer(self, dataframe, file_name, write_index = False):
+    def writer(self, dataframe, file_name, encoding = 'utf-8', write_index = False):
         '''This method writes a dataframe to a .csv file whose name is passed as a parameter'''
         
         print('Escrevendo', file_name)
 
-        dataframe.to_csv(file_name, index = write_index)
+        dataframe.to_csv(file_name, index = write_index, encoding = encoding)
 
     def analyzer(self, dataframe, title, file_name, minimal_mode = True):
         '''This method writes an analysis based on the Pandas Profiling library about a dataframe passed as a parameter'''
@@ -157,7 +161,7 @@ class Manager():
                                 'QE_I11': 'BOLSA_ESTUDOS',
                                 'QE_I12': 'AUXILIO_PERMANENCIA',
                                 'QE_I13': 'BOLSA_ACADEMICA',
-                                'QE_I14': 'INDICADOR_PARTICIPACAO_ATIVIDADES_EXTERIOR',
+                                'QE_I14': 'ATIVIDADES_EXTERIOR',
                                 'QE_I15': 'ACAO_AFIRMATIVA',
                                 'QE_I16': 'UF_ESCOLA_ENSINO_MEDIO',
                                 'QE_I17': 'CATEGORIA_ADM_ESCOLA_ENSINO_MEDIO',
@@ -251,6 +255,7 @@ class Manager():
             #Performing necessary and specific operations for iteration
             if i == 2018:
                 dataframe['MODALIDADE_CURSO'] = dataframe['MODALIDADE_CURSO'].replace(['2'], '0')
+                
                 # modalities = []
 
                 # for a, b in dataframe.iterrows():
@@ -284,9 +289,7 @@ class Manager():
                
                 dataframe.insert(15, 'TURNO_GRADUACAO', shifts)
             
-            print('oxe',i)
-
-            #Adding data read in the iteration to the final dataframe
+            # Adding data read in the iteration to the final dataframe
             if i == 2018:
                 final_dataframe = dataframe
             else:
@@ -296,19 +299,20 @@ class Manager():
 
         #Dropping possible duplicate rows
         final_dataframe.drop_duplicates(ignore_index = True, inplace = True)
-        final_dataframe.reset_index(drop = True, inplace = True)
+        final_dataframe.reset_index(drop = True, inplace = True)      
 
         #Selecting valid presences in the ENADE
         final_dataframe = final_dataframe.loc[final_dataframe['PRESENCA_ENADE'] == '555']
         final_dataframe.drop('PRESENCA_ENADE', axis=1, inplace=True)
+        final_dataframe.reset_index(drop = True, inplace = True)
 
-        #Selecting records that are not associated with missing IES 708 and 18210
+        # #Selecting records that are not associated with missing IES 708 and 18210
         final_dataframe = final_dataframe.loc[(final_dataframe['CODIGO_IES'] != '708') & (final_dataframe['CODIGO_IES'] != '18210')]
         final_dataframe.reset_index(drop = True, inplace = True)
 
         final_dataframe['SEXO'] = final_dataframe['SEXO'].replace(['N'], 'M')
         
-        #Dropping records with missing values
+        # #Dropping records with missing values
         final_dataframe.dropna(inplace = True)
         final_dataframe.reset_index(drop = True, inplace = True)
 
@@ -325,12 +329,149 @@ class Manager():
         #Defining new 'NOTA_BRUTA_ENADE' variable with right data format
         final_dataframe.insert(1, 'NOTA_BRUTA_ENADE', scores)
 
-        #Writing final dataframe data
-        self.writer(final_dataframe, 'enade_novo_metodo.csv')
+        #As types...
+        final_dataframe = final_dataframe.astype({'NOTA_BRUTA_ENADE': 'float64'})
+        final_dataframe = final_dataframe.astype({'IDADE': 'int64'})
+        final_dataframe = final_dataframe.astype({'ANO_FIM_ENSINO_MEDIO': 'int64'})
+        final_dataframe = final_dataframe.astype({'ANO_INICIO_GRADUACAO': 'int64'})
 
-        #Analyzing final dataframe data
-        self.analyzer(final_dataframe, 'NOVO ENADE', 'enade_novo_metodo.html')
+        #Ages >= 17...
+        final_dataframe = final_dataframe[final_dataframe['IDADE'] >= 17]
+        final_dataframe.reset_index(drop = True, inplace = True)
 
+        #Ages >= 17...
+        final_dataframe = final_dataframe[(final_dataframe['ANO_FIM_ENSINO_MEDIO'] >= 1900) & (final_dataframe['ANO_FIM_ENSINO_MEDIO'] <= 2018)]
+        final_dataframe.reset_index(drop = True, inplace = True)
+
+        #Ages >= 17...
+        final_dataframe = final_dataframe[(final_dataframe['ANO_INICIO_GRADUACAO'] <= 2018)]
+        final_dataframe.reset_index(drop = True, inplace = True)
+
+        #Writing final dataframe data before extra formating
+        self.writer(final_dataframe, 'enade_final.csv')
+
+        #Analyzing final dataframe data before extra formating
+        self.analyzer(final_dataframe, 'ENADE', 'enade_final.html')
+
+        final_dataframe['INCENTIVO_GRADUACAO'] = final_dataframe['INCENTIVO_GRADUACAO'].replace(['C'], 'B')
+        final_dataframe['INCENTIVO_GRADUACAO'] = final_dataframe['INCENTIVO_GRADUACAO'].replace(['D'], 'C')
+        final_dataframe['INCENTIVO_GRADUACAO'] = final_dataframe['INCENTIVO_GRADUACAO'].replace(['E'], 'C')
+        final_dataframe['INCENTIVO_GRADUACAO'] = final_dataframe['INCENTIVO_GRADUACAO'].replace(['F'], 'C')
+        final_dataframe['INCENTIVO_GRADUACAO'] = final_dataframe['INCENTIVO_GRADUACAO'].replace(['G'], 'D')
+
+        final_dataframe['COMPANHIA_RESIDENCIA'] = final_dataframe['COMPANHIA_RESIDENCIA'].replace(['C'], 'B')
+        final_dataframe['COMPANHIA_RESIDENCIA'] = final_dataframe['COMPANHIA_RESIDENCIA'].replace(['D'], 'C')
+        final_dataframe['COMPANHIA_RESIDENCIA'] = final_dataframe['COMPANHIA_RESIDENCIA'].replace(['E'], 'D')
+        final_dataframe['COMPANHIA_RESIDENCIA'] = final_dataframe['COMPANHIA_RESIDENCIA'].replace(['F'], 'E')
+
+        variables = ['FORMACAO_INTEGRAL', 
+                     'ATUACAO_PROFISSIONAL', 
+                     'CAPACIDADE_CRITICA', 
+                     'CAPACIDADE_ANALISE',
+                     'CAPACIDADE_COMUNICACAO',
+                     'CAPACIDADE_APRENDIZADO',
+                     'RELACAO_PROFESSOR_ALUNO',
+                     'OFERTA_APOIO_IES',
+                     'ACESSO_COORDENACAO_CURSO',
+                     'ATIVIDADES_EXTENSAO_IES',
+                     'ATIVIDADES_PESQUISA_IES',
+                     'OFERTA_EVENTOS_IES',
+                     'CONTRIBUICAO_ESTAGIO',
+                     'CONTRIBUICAO_TCC',
+                     'AVALIACOES_PERIODICAS_CURSO',
+                     'SUPORTE_EXTERNO_PROFESSORES',
+                     'DOMINIO_CONTEUDO_PROFESSORES',
+                     'EMPREGO_TICS_PROFESSORES',
+                     'PESSOAL_APOIO_IES',
+                     'MONITORES_IES',
+                     'INFRAESTRUTURA_SALAS_AULA_IES',
+                     'RECURSOS_AULAS_PRATICAS_IES',
+                     'AMBIENTES_AULAS_PRATICAS_IES',
+                     'BIBLIOTECA_FISICA_IES',
+                     'BIBLIOTECA_VIRTUAL_IES',
+                     'OFERTA_LAZER_IES',
+                     'INFRAESTRUTURA_GERAL_IES']
+
+        for i in variables:
+            final_dataframe[i] = final_dataframe[i].replace(['1'], 'A')
+            final_dataframe[i] = final_dataframe[i].replace(['2'], 'A')
+            final_dataframe[i] = final_dataframe[i].replace(['3'], 'A')
+            final_dataframe[i] = final_dataframe[i].replace(['4'], 'B')
+            final_dataframe[i] = final_dataframe[i].replace(['5'], 'B')
+            final_dataframe[i] = final_dataframe[i].replace(['6'], 'B')
+            final_dataframe[i] = final_dataframe[i].replace(['7'], 'C')
+            final_dataframe[i] = final_dataframe[i].replace(['8'], 'D')
+
+        # final_dataframe['MODALIDADE_CURSO'] = final_dataframe['MODALIDADE_CURSO'].replace(['1'], 'A')
+
+        final_dataframe['FAIXA_IDADE_FREQUENCIA_EQUILIBRADA'] = final_dataframe['IDADE']
+        # ages = list(dataframe['IDADE'])
+        # dataframe.insert(10, 'IDADE_DISCRETIZADA', ages)
+
+        ages = []
+
+        for i, j in final_dataframe.iterrows():
+            if j['IDADE'] >= 17 and j['IDADE'] <= 24:
+                # ages.append('A')
+                ages.append('Entre 17 e 24 anos')
+            elif j['IDADE'] >= 25 and j['IDADE'] <= 39:
+                # ages.append('B')
+                ages.append('Entre 25 e 39 anos')
+            elif j['IDADE'] >= 40 and j['IDADE'] <= 59:
+                # ages.append('C')
+                ages.append('Entre 40 e 59 anos')
+            elif j['IDADE'] >= 60:
+                # ages.append('D')
+                ages.append('60 anos ou mais')
+            else:
+                ages.append('0')
+
+        final_dataframe.drop('IDADE', axis = 1, inplace = True)
+        final_dataframe.insert(10, 'FAIXA_IDADE_LARGURA_EQUILIBRADA', ages)
+
+        discretizer = EqualFrequencyDiscretiser(q = 4, variables = ['NOTA_BRUTA_ENADE', 'FAIXA_IDADE_FREQUENCIA_EQUILIBRADA', 'ANO_FIM_ENSINO_MEDIO', 'ANO_INICIO_GRADUACAO'], return_boundaries = True)
+        final_dataframe = discretizer.fit_transform(final_dataframe)
+
+        self.writer(final_dataframe, 'enade_final2.csv')
+
+        self.analyzer(final_dataframe, 'ENADE', 'enade_final2.html')
+
+    def enade_reviews(self):
+        # dataframe = self.reader('enade_final.csv')
+        # dataframe = dataframe.astype({'IDADE': 'int64'})
+        # ages = dataframe.value_counts(subset = ['IDADE'])
+        # self.writer(ages, 'enade_idades.csv', write_index = True)
+        # ages = self.reader('enade_idades.csv')
+        # ages = ages.sort_values(by = ['IDADE'], ascending = True)
+        # self.writer(ages, 'enade_idades.csv')
+
+        # dataframe = self.reader('enade_final.csv')
+        # dataframe = dataframe.astype({'ANO_FIM_ENSINO_MEDIO': 'int64'})
+        # ages = dataframe.value_counts(subset = ['ANO_FIM_ENSINO_MEDIO'])
+        # self.writer(ages, 'ANO_FIM_ENSINO_MEDIO1.csv', write_index = True)
+        # ages = self.reader('ANO_FIM_ENSINO_MEDIO1.csv')
+        # ages = ages.sort_values(by = ['ANO_FIM_ENSINO_MEDIO'], ascending = True)
+        # self.writer(ages, 'ANO_FIM_ENSINO_MEDIO1.csv')
+
+        dataframe = self.reader('enade_final.csv')
+        dataframe = dataframe.astype({'ANO_INICIO_GRADUACAO': 'int64'})
+        ages = dataframe.value_counts(subset = ['ANO_INICIO_GRADUACAO'])
+        self.writer(ages, 'ANO_INICIO_GRADUACAO.csv', write_index = True)
+        ages = self.reader('ANO_INICIO_GRADUACAO.csv')
+        ages = ages.sort_values(by = ['ANO_INICIO_GRADUACAO'], ascending = True)
+        self.writer(ages, 'ANO_INICIO_GRADUACAO.csv')
+
+
+
+
+    def ies_enade_formatter(self):
+        #Finding 'ies associadas'
+        dataframe = self.reader('enade_final2.csv', 'csv', ',')
+        dataframe = dataframe.drop_duplicates(subset = ['CODIGO_IES'], ignore_index = True)
+        dataframe = dataframe['CODIGO_IES']
+
+        self.writer(dataframe, 'enade_ies_associadas.csv')
+        
     def ies_formatter(self):
         #Iterations that will be performed
         iterations = [2018, 2017, 2016]
@@ -433,6 +574,7 @@ class Manager():
                 print(variables_to_drop)
             elif i == 2017:
                 path = 'educacao_superior/2017/dados/dm_ies.csv'
+                variables_to_drop = commom_variables_to_drop
             elif i == 2016:
                 path = 'educacao_superior/2016/dados/dm_ies.csv'
                 other_variables_to_drop = ['DS_CATEGORIA_ADMINISTRATIVA',
@@ -460,74 +602,169 @@ class Manager():
             else:
                 final_dataframe = final_dataframe.append(dataframe, ignore_index = True)
 
-        #Performing necessary operations for final dataframe
-        final_dataframe = final_dataframe.astype({'ANO_CENSO_IES': 'int32'})
-        final_dataframe = final_dataframe.sort_values(by='ANO_CENSO_IES', ascending = False)
-        
-        #Dropping possible duplicate rows
-        final_dataframe = final_dataframe.drop_duplicates(subset=['CODIGO_IES'], ignore_index = True)
+        # final_final_dataframe = final_dataframe
+
+        auxiliar_dataframe = pd.DataFrame([['2015','4899','FACULDADE DE CIÊNCIAS MÉDICAS DA BAHIA','CIENCIAS MEDICAS','3125','CENTRO EDUCACIONAL DO SUL DA BAHIA LTDA - ME','4','3','Nordeste','29','2927705','0','6','0','0','1','0','2','0','1','1','1','0','0','0','0','0','0','0','0','1','1','1','0','0','2','485042.00','0.00','15264.20','265420.00','112580.00','56325.11','18632.32','14125.00','17560.00','52005.44']], columns = ['ANO_CENSO_IES','CODIGO_IES','NOME_IES','SIGLA_IES','CODIGO_MANTENEDORA_IES','NOME_MANTENEDORA_IES','CATEGORIA_ADMINISTRATIVA_IES','ORGANIZACAO_ACADEMICA_IES','CODIGO_REGIAO_IES','CODIGO_UNIDADE_FEDERATIVA_IES','CODIGO_MUNICIPIO_IES','LOCALIZACAO_CAPITAL_IES','QTDE_TOTAL_TECNICOS_IES','QTDE_TECNICOS_FUNDAMENTAL_INCOMP_FEM_IES','QTDE_TECNICOS_FUNDAMENTAL_INCOMP_MASC_IES','QTDE_TECNICOS_FUNDAMENTAL_COMP_FEM_IES','QTDE_TECNICOS_FUNDAMENTAL_COMP_MASC_IES','QTDE_TECNICOS_MEDIO_FEM_IES','QTDE_TECNICOS_MEDIO_MASC_IES','QTDE_TECNICOS_SUPERIOR_FEM_IES','QTDE_TECNICOS_SUPERIOR_MASC_IES','QTDE_TECNICOS_ESPECIALIZACAO_FEM_IES','QTDE_TECNICOS_ESPECIALIZACAO_MASC_IES','QTDE_TECNICOS_MESTRADO_FEM_IES','QTDE_TECNICOS_MESTRADO_MASC_IES','QTDE_TECNICOS_DOUTORADO_FEM_IES','QTDE_TECNICOS_DOUTORADO_MASC_IES','ACESSO_PORTAL_CAPES_IES','REPOSITORIO_INSTITUCIONAL_IES','BUSCA_INTEGRADA_IES','SERVICO_INTERNET_IES','PARTICIPACAO_REDE_SOCIAL_IES','CATALOGO_ONLINE_IES','QTDE_PERIODICOS_ELETRONICOS_IES','QTDE_LIVROS_ELETRONICOS_IES','REFERENCIA_FINANCEIRA_IES','RECEITA_PROPRIA_IES','RECEITA_TRANSFERENCIA_IES','OUTRA_RECEITA_IES','DESPESA_DOCENTE_IES','DESPESA_TECNICO_IES','DESPESA_ENCARGO_IES','DESPESA_CUSTEIO_IES','DESPESA_INVESTIMENTO_IES','DESPESA_PESQUISA_IES','OUTRA_DESPESA_IES'])
+        # final_final_dataframe = final_final_dataframe.append(auxiliar_dataframe, ignore_index = True)
+        final_dataframe = final_dataframe.append(auxiliar_dataframe, ignore_index = True)
+
+        final_dataframe.drop(['CODIGO_REGIAO_IES', 'CODIGO_UNIDADE_FEDERATIVA_IES', 'CODIGO_MUNICIPIO_IES'], axis = 1, inplace = True)
         final_dataframe.reset_index(drop = True, inplace = True)
 
-        final_dataframe['SIGLA_IES'].fillna('SEM SIGLA', inplace = True)
+        final_dataframe['CATEGORIA_ADMINISTRATIVA_IES'] = final_dataframe['CATEGORIA_ADMINISTRATIVA_IES'].replace(['5'], '4')
+        final_dataframe['CATEGORIA_ADMINISTRATIVA_IES'] = final_dataframe['CATEGORIA_ADMINISTRATIVA_IES'].replace(['6'], '4')
+        final_dataframe['CATEGORIA_ADMINISTRATIVA_IES'] = final_dataframe['CATEGORIA_ADMINISTRATIVA_IES'].replace(['7'], '4')
+        final_dataframe['CATEGORIA_ADMINISTRATIVA_IES'] = final_dataframe['CATEGORIA_ADMINISTRATIVA_IES'].replace(['8'], '4')
+        final_dataframe['CATEGORIA_ADMINISTRATIVA_IES'] = final_dataframe['CATEGORIA_ADMINISTRATIVA_IES'].replace(['9'], '4')
 
-        final_dataframe = final_dataframe.astype({'QTDE_TECNICOS_FUNDAMENTAL_INCOMP_FEM_IES': 'int32'})
-        final_dataframe = final_dataframe.astype({'QTDE_TECNICOS_FUNDAMENTAL_INCOMP_MASC_IES': 'int32'})
-        final_dataframe = final_dataframe.astype({'QTDE_TECNICOS_FUNDAMENTAL_COMP_FEM_IES': 'int32'})
-        final_dataframe = final_dataframe.astype({'QTDE_TECNICOS_FUNDAMENTAL_COMP_MASC_IES': 'int32'})
-        final_dataframe = final_dataframe.astype({'QTDE_TECNICOS_MEDIO_FEM_IES': 'int32'})
-        final_dataframe = final_dataframe.astype({'QTDE_TECNICOS_MEDIO_MASC_IES': 'int32'})
-        final_dataframe = final_dataframe.astype({'QTDE_TECNICOS_SUPERIOR_FEM_IES': 'int32'})
-        final_dataframe = final_dataframe.astype({'QTDE_TECNICOS_SUPERIOR_MASC_IES': 'int32'})
-        final_dataframe = final_dataframe.astype({'QTDE_TECNICOS_ESPECIALIZACAO_FEM_IES': 'int32'})
-        final_dataframe = final_dataframe.astype({'QTDE_TECNICOS_ESPECIALIZACAO_MASC_IES': 'int32'})
-        final_dataframe = final_dataframe.astype({'QTDE_TECNICOS_MESTRADO_FEM_IES': 'int32'})
-        final_dataframe = final_dataframe.astype({'QTDE_TECNICOS_MESTRADO_MASC_IES': 'int32'})
-        final_dataframe = final_dataframe.astype({'QTDE_TECNICOS_DOUTORADO_FEM_IES': 'int32'})
-        final_dataframe = final_dataframe.astype({'QTDE_TECNICOS_DOUTORADO_MASC_IES': 'int32'})
+        auxiliar_dataframe = self.reader('enade_ies_associadas.csv', 'csv', ',')
+        ies_list = list(auxiliar_dataframe['CODIGO_IES'])
+        final_final_dataframe = None
+        print(len(ies_list))
+        count = 0
 
-        final_dataframe['RECEITA_PROPRIA_IES'] = final_dataframe['RECEITA_PROPRIA_IES'].replace(['0'],'0.00')
-        final_dataframe['RECEITA_TRANSFERENCIA_IES'] = final_dataframe['RECEITA_TRANSFERENCIA_IES'].replace(['0'],'0.00')
-        final_dataframe['OUTRA_RECEITA_IES'] = final_dataframe['OUTRA_RECEITA_IES'].replace(['0'],'0.00')
-        final_dataframe['DESPESA_DOCENTE_IES'] = final_dataframe['DESPESA_DOCENTE_IES'].replace(['0'],'0.00')
-        final_dataframe['DESPESA_TECNICO_IES'] = final_dataframe['DESPESA_TECNICO_IES'].replace(['0'],'0.00')
-        final_dataframe['DESPESA_ENCARGO_IES'] = final_dataframe['DESPESA_ENCARGO_IES'].replace(['0'],'0.00')
-        final_dataframe['DESPESA_CUSTEIO_IES'] = final_dataframe['DESPESA_CUSTEIO_IES'].replace(['0'],'0.00')
-        final_dataframe['DESPESA_INVESTIMENTO_IES'] = final_dataframe['DESPESA_INVESTIMENTO_IES'].replace(['0'],'0.00')
-        final_dataframe['DESPESA_PESQUISA_IES'] = final_dataframe['DESPESA_PESQUISA_IES'].replace(['0'],'0.00')
-        final_dataframe['OUTRA_DESPESA_IES'] = final_dataframe['OUTRA_DESPESA_IES'].replace(['0'],'0.00')
+        for i in ies_list:
+            dataframe = final_dataframe[final_dataframe['CODIGO_IES']==str(i)]
+            # print(df)
+            if count == 0:
+                final_final_dataframe = dataframe
+                # print('é')
+            else:
+                # print('é não')
+                final_final_dataframe = final_final_dataframe.append(dataframe, ignore_index=True)
+            count += 1
 
-        qtde_tecnicos_fundamental = final_dataframe['QTDE_TECNICOS_FUNDAMENTAL_INCOMP_FEM_IES'] + final_dataframe['QTDE_TECNICOS_FUNDAMENTAL_INCOMP_MASC_IES'] + final_dataframe['QTDE_TECNICOS_FUNDAMENTAL_COMP_FEM_IES'] + final_dataframe['QTDE_TECNICOS_FUNDAMENTAL_COMP_MASC_IES']
-        qtde_tecnicos_medio = final_dataframe['QTDE_TECNICOS_MEDIO_FEM_IES'] + final_dataframe['QTDE_TECNICOS_MEDIO_MASC_IES']
-        qtde_tecnicos_superior = final_dataframe['QTDE_TECNICOS_SUPERIOR_FEM_IES'] + final_dataframe['QTDE_TECNICOS_SUPERIOR_MASC_IES']
-        qtde_tecnicos_pos = final_dataframe['QTDE_TECNICOS_ESPECIALIZACAO_FEM_IES'] + final_dataframe['QTDE_TECNICOS_ESPECIALIZACAO_MASC_IES'] + final_dataframe['QTDE_TECNICOS_MESTRADO_FEM_IES'] + final_dataframe['QTDE_TECNICOS_MESTRADO_MASC_IES'] + final_dataframe['QTDE_TECNICOS_DOUTORADO_FEM_IES'] + final_dataframe['QTDE_TECNICOS_DOUTORADO_MASC_IES']
 
-        final_dataframe.insert(12,'QTDE_TECNICOS_FUNDAMENTAL_IES',list(qtde_tecnicos_fundamental),True)
-        final_dataframe.insert(13,'QTDE_TECNICOS_MEDIO_IES',list(qtde_tecnicos_medio),True)
-        final_dataframe.insert(14,'QTDE_TECNICOS_SUPERIOR_IES',list(qtde_tecnicos_superior),True)
-        final_dataframe.insert(15,'QTDE_TECNICOS_POS_IES',list(qtde_tecnicos_pos),True)
 
-        final_dataframe.drop('QTDE_TECNICOS_FUNDAMENTAL_INCOMP_FEM_IES', axis=1, inplace=True)
-        final_dataframe.drop('QTDE_TECNICOS_FUNDAMENTAL_INCOMP_MASC_IES', axis=1, inplace=True)
-        final_dataframe.drop('QTDE_TECNICOS_FUNDAMENTAL_COMP_FEM_IES', axis=1, inplace=True)
-        final_dataframe.drop('QTDE_TECNICOS_FUNDAMENTAL_COMP_MASC_IES', axis=1, inplace=True)
-        final_dataframe.drop('QTDE_TECNICOS_MEDIO_FEM_IES', axis=1, inplace=True)
-        final_dataframe.drop('QTDE_TECNICOS_MEDIO_MASC_IES', axis=1, inplace=True)
-        final_dataframe.drop('QTDE_TECNICOS_SUPERIOR_FEM_IES', axis=1, inplace=True)
-        final_dataframe.drop('QTDE_TECNICOS_SUPERIOR_MASC_IES', axis=1, inplace=True)
-        final_dataframe.drop('QTDE_TECNICOS_ESPECIALIZACAO_FEM_IES', axis=1, inplace=True)
-        final_dataframe.drop('QTDE_TECNICOS_ESPECIALIZACAO_MASC_IES', axis=1, inplace=True)
-        final_dataframe.drop('QTDE_TECNICOS_MESTRADO_FEM_IES', axis=1, inplace=True)
-        final_dataframe.drop('QTDE_TECNICOS_MESTRADO_MASC_IES', axis=1, inplace=True)
-        final_dataframe.drop('QTDE_TECNICOS_DOUTORADO_FEM_IES', axis=1, inplace=True)
-        final_dataframe.drop('QTDE_TECNICOS_DOUTORADO_MASC_IES', axis=1, inplace=True)
+        #Performing necessary operations for final dataframe
+        final_final_dataframe = final_final_dataframe.astype({'ANO_CENSO_IES': 'int32'})
+        final_final_dataframe = final_final_dataframe.sort_values(by='ANO_CENSO_IES', ascending = False)
+        
+        #Dropping possible duplicate rows
+        final_final_dataframe = final_final_dataframe.drop_duplicates(subset=['CODIGO_IES'], ignore_index = True)
+        final_final_dataframe.reset_index(drop = True, inplace = True)
 
-        final_dataframe = final_dataframe[['ANO_CENSO_IES','CODIGO_IES','NOME_IES','SIGLA_IES','CODIGO_MANTENEDORA_IES','NOME_MANTENEDORA_IES','CATEGORIA_ADMINISTRATIVA_IES','ORGANIZACAO_ACADEMICA_IES','CODIGO_REGIAO_IES','CODIGO_UNIDADE_FEDERATIVA_IES','CODIGO_MUNICIPIO_IES','LOCALIZACAO_CAPITAL_IES','QTDE_TOTAL_TECNICOS_IES','QTDE_TECNICOS_FUNDAMENTAL_IES','QTDE_TECNICOS_MEDIO_IES','QTDE_TECNICOS_SUPERIOR_IES','QTDE_TECNICOS_POS_IES','ACESSO_PORTAL_CAPES_IES','REPOSITORIO_INSTITUCIONAL_IES','BUSCA_INTEGRADA_IES','SERVICO_INTERNET_IES','PARTICIPACAO_REDE_SOCIAL_IES','CATALOGO_ONLINE_IES','QTDE_PERIODICOS_ELETRONICOS_IES','QTDE_LIVROS_ELETRONICOS_IES','REFERENCIA_FINANCEIRA_IES','RECEITA_PROPRIA_IES','RECEITA_TRANSFERENCIA_IES','OUTRA_RECEITA_IES','DESPESA_DOCENTE_IES','DESPESA_TECNICO_IES','DESPESA_ENCARGO_IES','DESPESA_CUSTEIO_IES','DESPESA_INVESTIMENTO_IES','DESPESA_PESQUISA_IES','OUTRA_DESPESA_IES']]
+        final_final_dataframe['SIGLA_IES'].fillna('SEM SIGLA', inplace = True)
 
-        #Writing final dataframe data
-        self.writer(final_dataframe, 'ies_novo_metodo.csv')
+        final_final_dataframe = final_final_dataframe.astype({'QTDE_TECNICOS_FUNDAMENTAL_INCOMP_FEM_IES': 'int32'})
+        final_final_dataframe = final_final_dataframe.astype({'QTDE_TECNICOS_FUNDAMENTAL_INCOMP_MASC_IES': 'int32'})
+        final_final_dataframe = final_final_dataframe.astype({'QTDE_TECNICOS_FUNDAMENTAL_COMP_FEM_IES': 'int32'})
+        final_final_dataframe = final_final_dataframe.astype({'QTDE_TECNICOS_FUNDAMENTAL_COMP_MASC_IES': 'int32'})
+        final_final_dataframe = final_final_dataframe.astype({'QTDE_TECNICOS_MEDIO_FEM_IES': 'int32'})
+        final_final_dataframe = final_final_dataframe.astype({'QTDE_TECNICOS_MEDIO_MASC_IES': 'int32'})
+        final_final_dataframe = final_final_dataframe.astype({'QTDE_TECNICOS_SUPERIOR_FEM_IES': 'int32'})
+        final_final_dataframe = final_final_dataframe.astype({'QTDE_TECNICOS_SUPERIOR_MASC_IES': 'int32'})
+        final_final_dataframe = final_final_dataframe.astype({'QTDE_TECNICOS_ESPECIALIZACAO_FEM_IES': 'int32'})
+        final_final_dataframe = final_final_dataframe.astype({'QTDE_TECNICOS_ESPECIALIZACAO_MASC_IES': 'int32'})
+        final_final_dataframe = final_final_dataframe.astype({'QTDE_TECNICOS_MESTRADO_FEM_IES': 'int32'})
+        final_final_dataframe = final_final_dataframe.astype({'QTDE_TECNICOS_MESTRADO_MASC_IES': 'int32'})
+        final_final_dataframe = final_final_dataframe.astype({'QTDE_TECNICOS_DOUTORADO_FEM_IES': 'int32'})
+        final_final_dataframe = final_final_dataframe.astype({'QTDE_TECNICOS_DOUTORADO_MASC_IES': 'int32'})
 
-        #Analyzing final dataframe data
-        self.analyzer(final_dataframe, 'NOVA IES', 'ies_novo_metodo.html')
+        final_final_dataframe['RECEITA_PROPRIA_IES'] = final_final_dataframe['RECEITA_PROPRIA_IES'].replace(['0'],'0.00')
+        final_final_dataframe['RECEITA_TRANSFERENCIA_IES'] = final_final_dataframe['RECEITA_TRANSFERENCIA_IES'].replace(['0'],'0.00')
+        final_final_dataframe['OUTRA_RECEITA_IES'] = final_final_dataframe['OUTRA_RECEITA_IES'].replace(['0'],'0.00')
+        final_final_dataframe['DESPESA_DOCENTE_IES'] = final_final_dataframe['DESPESA_DOCENTE_IES'].replace(['0'],'0.00')
+        final_final_dataframe['DESPESA_TECNICO_IES'] = final_final_dataframe['DESPESA_TECNICO_IES'].replace(['0'],'0.00')
+        final_final_dataframe['DESPESA_ENCARGO_IES'] = final_final_dataframe['DESPESA_ENCARGO_IES'].replace(['0'],'0.00')
+        final_final_dataframe['DESPESA_CUSTEIO_IES'] = final_final_dataframe['DESPESA_CUSTEIO_IES'].replace(['0'],'0.00')
+        final_final_dataframe['DESPESA_INVESTIMENTO_IES'] = final_final_dataframe['DESPESA_INVESTIMENTO_IES'].replace(['0'],'0.00')
+        final_final_dataframe['DESPESA_PESQUISA_IES'] = final_final_dataframe['DESPESA_PESQUISA_IES'].replace(['0'],'0.00')
+        final_final_dataframe['OUTRA_DESPESA_IES'] = final_final_dataframe['OUTRA_DESPESA_IES'].replace(['0'],'0.00')
+
+        qtde_tecnicos_fundamental = final_final_dataframe['QTDE_TECNICOS_FUNDAMENTAL_INCOMP_FEM_IES'] + final_final_dataframe['QTDE_TECNICOS_FUNDAMENTAL_INCOMP_MASC_IES'] + final_final_dataframe['QTDE_TECNICOS_FUNDAMENTAL_COMP_FEM_IES'] + final_final_dataframe['QTDE_TECNICOS_FUNDAMENTAL_COMP_MASC_IES']
+        qtde_tecnicos_medio = final_final_dataframe['QTDE_TECNICOS_MEDIO_FEM_IES'] + final_final_dataframe['QTDE_TECNICOS_MEDIO_MASC_IES']
+        qtde_tecnicos_superior = final_final_dataframe['QTDE_TECNICOS_SUPERIOR_FEM_IES'] + final_final_dataframe['QTDE_TECNICOS_SUPERIOR_MASC_IES']
+        qtde_tecnicos_pos = final_final_dataframe['QTDE_TECNICOS_ESPECIALIZACAO_FEM_IES'] + final_final_dataframe['QTDE_TECNICOS_ESPECIALIZACAO_MASC_IES'] + final_final_dataframe['QTDE_TECNICOS_MESTRADO_FEM_IES'] + final_final_dataframe['QTDE_TECNICOS_MESTRADO_MASC_IES'] + final_final_dataframe['QTDE_TECNICOS_DOUTORADO_FEM_IES'] + final_final_dataframe['QTDE_TECNICOS_DOUTORADO_MASC_IES']
+
+        final_final_dataframe.insert(12,'QTDE_TECNICOS_FUNDAMENTAL_IES',list(qtde_tecnicos_fundamental),True)
+        final_final_dataframe.insert(13,'QTDE_TECNICOS_MEDIO_IES',list(qtde_tecnicos_medio),True)
+        final_final_dataframe.insert(14,'QTDE_TECNICOS_SUPERIOR_IES',list(qtde_tecnicos_superior),True)
+        final_final_dataframe.insert(15,'QTDE_TECNICOS_POS_IES',list(qtde_tecnicos_pos),True)
+
+        final_final_dataframe.drop('QTDE_TECNICOS_FUNDAMENTAL_INCOMP_FEM_IES', axis=1, inplace=True)
+        final_final_dataframe.drop('QTDE_TECNICOS_FUNDAMENTAL_INCOMP_MASC_IES', axis=1, inplace=True)
+        final_final_dataframe.drop('QTDE_TECNICOS_FUNDAMENTAL_COMP_FEM_IES', axis=1, inplace=True)
+        final_final_dataframe.drop('QTDE_TECNICOS_FUNDAMENTAL_COMP_MASC_IES', axis=1, inplace=True)
+        final_final_dataframe.drop('QTDE_TECNICOS_MEDIO_FEM_IES', axis=1, inplace=True)
+        final_final_dataframe.drop('QTDE_TECNICOS_MEDIO_MASC_IES', axis=1, inplace=True)
+        final_final_dataframe.drop('QTDE_TECNICOS_SUPERIOR_FEM_IES', axis=1, inplace=True)
+        final_final_dataframe.drop('QTDE_TECNICOS_SUPERIOR_MASC_IES', axis=1, inplace=True)
+        final_final_dataframe.drop('QTDE_TECNICOS_ESPECIALIZACAO_FEM_IES', axis=1, inplace=True)
+        final_final_dataframe.drop('QTDE_TECNICOS_ESPECIALIZACAO_MASC_IES', axis=1, inplace=True)
+        final_final_dataframe.drop('QTDE_TECNICOS_MESTRADO_FEM_IES', axis=1, inplace=True)
+        final_final_dataframe.drop('QTDE_TECNICOS_MESTRADO_MASC_IES', axis=1, inplace=True)
+        final_final_dataframe.drop('QTDE_TECNICOS_DOUTORADO_FEM_IES', axis=1, inplace=True)
+        final_final_dataframe.drop('QTDE_TECNICOS_DOUTORADO_MASC_IES', axis=1, inplace=True)
+
+        # final_final_dataframe = final_final_dataframe[['ANO_CENSO_IES','CODIGO_IES','NOME_IES','SIGLA_IES','CODIGO_MANTENEDORA_IES','NOME_MANTENEDORA_IES','CATEGORIA_ADMINISTRATIVA_IES','ORGANIZACAO_ACADEMICA_IES','CODIGO_REGIAO_IES','CODIGO_UNIDADE_FEDERATIVA_IES','CODIGO_MUNICIPIO_IES','LOCALIZACAO_CAPITAL_IES','QTDE_TOTAL_TECNICOS_IES','QTDE_TECNICOS_FUNDAMENTAL_IES','QTDE_TECNICOS_MEDIO_IES','QTDE_TECNICOS_SUPERIOR_IES','QTDE_TECNICOS_POS_IES','ACESSO_PORTAL_CAPES_IES','REPOSITORIO_INSTITUCIONAL_IES','BUSCA_INTEGRADA_IES','SERVICO_INTERNET_IES','PARTICIPACAO_REDE_SOCIAL_IES','CATALOGO_ONLINE_IES','QTDE_PERIODICOS_ELETRONICOS_IES','QTDE_LIVROS_ELETRONICOS_IES','REFERENCIA_FINANCEIRA_IES','RECEITA_PROPRIA_IES','RECEITA_TRANSFERENCIA_IES','OUTRA_RECEITA_IES','DESPESA_DOCENTE_IES','DESPESA_TECNICO_IES','DESPESA_ENCARGO_IES','DESPESA_CUSTEIO_IES','DESPESA_INVESTIMENTO_IES','DESPESA_PESQUISA_IES','OUTRA_DESPESA_IES']]
+        final_final_dataframe = final_final_dataframe[['ANO_CENSO_IES','CODIGO_IES','NOME_IES','SIGLA_IES','CODIGO_MANTENEDORA_IES','NOME_MANTENEDORA_IES','CATEGORIA_ADMINISTRATIVA_IES','ORGANIZACAO_ACADEMICA_IES','LOCALIZACAO_CAPITAL_IES','QTDE_TOTAL_TECNICOS_IES','QTDE_TECNICOS_FUNDAMENTAL_IES','QTDE_TECNICOS_MEDIO_IES','QTDE_TECNICOS_SUPERIOR_IES','QTDE_TECNICOS_POS_IES','ACESSO_PORTAL_CAPES_IES','REPOSITORIO_INSTITUCIONAL_IES','BUSCA_INTEGRADA_IES','SERVICO_INTERNET_IES','PARTICIPACAO_REDE_SOCIAL_IES','CATALOGO_ONLINE_IES','QTDE_PERIODICOS_ELETRONICOS_IES','QTDE_LIVROS_ELETRONICOS_IES','REFERENCIA_FINANCEIRA_IES','RECEITA_PROPRIA_IES','RECEITA_TRANSFERENCIA_IES','OUTRA_RECEITA_IES','DESPESA_DOCENTE_IES','DESPESA_TECNICO_IES','DESPESA_ENCARGO_IES','DESPESA_CUSTEIO_IES','DESPESA_INVESTIMENTO_IES','DESPESA_PESQUISA_IES','OUTRA_DESPESA_IES']]
+
+        # print(len(list(final_final_dataframe.index)))
+        # auxiliar_dataframe = pd.DataFrame([[2015,4899,'FACULDADE DE CIÊNCIAS MÉDICAS DA BAHIA','CIENCIAS MEDICAS',3125,'CENTRO EDUCACIONAL DO SUL DA BAHIA LTDA - ME',4,3,2,29,2927705,0,6,1,2,2,1,0,0,0,1,1,1,0,0,2,485042.00,0.00,15264.20,265420.00,112580.00,56325.11,18632.32,14125.00,17560.00,52005.44]], columns = ['ANO_CENSO_IES','CODIGO_IES','NOME_IES','SIGLA_IES','CODIGO_MANTENEDORA_IES','NOME_MANTENEDORA_IES','CATEGORIA_ADMINISTRATIVA_IES','ORGANIZACAO_ACADEMICA_IES','CODIGO_REGIAO_IES','CODIGO_UNIDADE_FEDERATIVA_IES','CODIGO_MUNICIPIO_IES','LOCALIZACAO_CAPITAL_IES','QTDE_TOTAL_TECNICOS_IES','QTDE_TECNICOS_FUNDAMENTAL_IES','QTDE_TECNICOS_MEDIO_IES','QTDE_TECNICOS_SUPERIOR_IES','QTDE_TECNICOS_POS_IES','ACESSO_PORTAL_CAPES_IES','REPOSITORIO_INSTITUCIONAL_IES','BUSCA_INTEGRADA_IES','SERVICO_INTERNET_IES','PARTICIPACAO_REDE_SOCIAL_IES','CATALOGO_ONLINE_IES','QTDE_PERIODICOS_ELETRONICOS_IES','QTDE_LIVROS_ELETRONICOS_IES','REFERENCIA_FINANCEIRA_IES','RECEITA_PROPRIA_IES','RECEITA_TRANSFERENCIA_IES','OUTRA_RECEITA_IES','DESPESA_DOCENTE_IES','DESPESA_TECNICO_IES','DESPESA_ENCARGO_IES','DESPESA_CUSTEIO_IES','DESPESA_INVESTIMENTO_IES','DESPESA_PESQUISA_IES','OUTRA_DESPESA_IES'])
+
+        # final_final_dataframe = final_final_dataframe.append(auxiliar_dataframe, ignore_index = True)
+
+        print(len(list(final_final_dataframe.index)))
+
+        ##Writing final dataframe data before extra formating
+        self.writer(final_final_dataframe, 'ies_final.csv')
+
+        # #Analyzing final dataframe data before extra formating
+        self.analyzer(final_final_dataframe, 'IES', 'ies_final.html')
+
+
+
+
+        final_final_dataframe = final_final_dataframe.astype({'QTDE_TOTAL_TECNICOS_IES': 'int32'})
+        final_final_dataframe = final_final_dataframe.astype({'QTDE_TECNICOS_FUNDAMENTAL_IES': 'int32'})
+        final_final_dataframe = final_final_dataframe.astype({'QTDE_TECNICOS_MEDIO_IES': 'int32'})
+        final_final_dataframe = final_final_dataframe.astype({'QTDE_TECNICOS_SUPERIOR_IES': 'int32'})
+        final_final_dataframe = final_final_dataframe.astype({'QTDE_TECNICOS_POS_IES': 'int32'})
+        final_final_dataframe = final_final_dataframe.astype({'QTDE_PERIODICOS_ELETRONICOS_IES': 'int32'})
+        final_final_dataframe = final_final_dataframe.astype({'QTDE_LIVROS_ELETRONICOS_IES': 'int32'})
+        final_final_dataframe = final_final_dataframe.astype({'RECEITA_PROPRIA_IES': 'float64'})
+        # final_final_dataframe = final_final_dataframe.astype({'RECEITA_TRANSFERENCIA_IES': 'float64'})
+        final_final_dataframe = final_final_dataframe.astype({'OUTRA_RECEITA_IES': 'float64'})
+        final_final_dataframe = final_final_dataframe.astype({'DESPESA_DOCENTE_IES': 'float64'})
+        final_final_dataframe = final_final_dataframe.astype({'DESPESA_TECNICO_IES': 'float64'})
+        final_final_dataframe = final_final_dataframe.astype({'DESPESA_ENCARGO_IES': 'float64'})
+        final_final_dataframe = final_final_dataframe.astype({'DESPESA_CUSTEIO_IES': 'float64'})
+        final_final_dataframe = final_final_dataframe.astype({'DESPESA_INVESTIMENTO_IES': 'float64'})
+        final_final_dataframe = final_final_dataframe.astype({'DESPESA_PESQUISA_IES': 'float64'})
+        final_final_dataframe = final_final_dataframe.astype({'OUTRA_DESPESA_IES': 'float64'})
+
+        discretizer = EqualFrequencyDiscretiser(q = 4, variables = ['QTDE_TOTAL_TECNICOS_IES', 
+                                                                    'QTDE_TECNICOS_FUNDAMENTAL_IES', 
+                                                                    'QTDE_TECNICOS_MEDIO_IES', 
+                                                                    'QTDE_TECNICOS_SUPERIOR_IES',
+                                                                    'QTDE_TECNICOS_POS_IES',
+                                                                    'QTDE_PERIODICOS_ELETRONICOS_IES',
+                                                                    'QTDE_LIVROS_ELETRONICOS_IES',
+                                                                    'RECEITA_PROPRIA_IES',
+                                                                    # 'RECEITA_TRANSFERENCIA_IES',
+                                                                    'OUTRA_RECEITA_IES',
+                                                                    'DESPESA_DOCENTE_IES',
+                                                                    'DESPESA_TECNICO_IES',
+                                                                    'DESPESA_ENCARGO_IES',
+                                                                    'DESPESA_CUSTEIO_IES',
+                                                                    'DESPESA_INVESTIMENTO_IES',
+                                                                    'DESPESA_PESQUISA_IES',
+                                                                    'OUTRA_DESPESA_IES'], return_boundaries = True)
+        
+        final_final_dataframe = discretizer.fit_transform(final_final_dataframe)
+
+        # for i, j in dataframe.iterrows():
+        #     # print(str(j['DESPESA_DOCENTE_IES']))
+        #     # print(str(j['DESPESA_DOCENTE_IES']).replace('inf','opa'))
+        #     print(type(j['DESPESA_DOCENTE_IES'].right))
+        #     input()
+
+        self.writer(final_final_dataframe, 'ies_final2.csv')
+
+        # final_final_dataframe = self.reader('ies_final2.csv', 'csv', ',')
+
+        self.analyzer(final_final_dataframe, 'IES DISCRETIZADO', 'ies_final2.html')
     
     def igc_formatter(self):
         #Iterations that will be performed
@@ -705,10 +942,10 @@ class Manager():
 
     def database_maker(self):
         #Reading the ENADE database
-        enade_dataframe = self.reader('enade_novo_metodo.csv', 'csv', ',')
+        enade_dataframe = self.reader('enade_final2.csv', 'csv', ',')
 
         #Reading the IES database
-        ies_dataframe = self.reader('ies_novo_metodo.csv', 'csv', ',')
+        ies_dataframe = self.reader('ies_final2.csv', 'csv', ',')
 
         #Reading the IGC database
         igc_dataframe = self.reader('igc_novo_metodo.csv', 'csv', ',')
@@ -725,10 +962,16 @@ class Manager():
         final_dataframe = final_dataframe.join(cpc_dataframe.set_index(['CODIGO_IES','CODIGO_CURSO']), on=['CODIGO_IES','CODIGO_CURSO'])
         final_dataframe = final_dataframe.join(conceito_enade_dataframe.set_index(['CODIGO_IES','CODIGO_CURSO']), on=['CODIGO_IES','CODIGO_CURSO'])
 
+        # final_dataframe.drop_duplicates(ignore_index = True, inplace = True)
+
         #Writing final database
         self.writer(final_dataframe, 'base_final_novo_metodo.csv')
 
         #Analyzing final database
         self.analyzer(final_dataframe, 'BASE FINAL', 'base_final_novo_metodo.html')
+
+        # ies_associadas_dataframe = final_dataframe.drop_duplicates(subset = ['CODIGO_IES'], ignore_index = True)
+        # ies_associadas_dataframe = ies_associadas_dataframe['CODIGO_IES']
+        # self.writer(ies_associadas_dataframe, 'ies_associadas_enade_df.csv')
 
 manager = Manager()
